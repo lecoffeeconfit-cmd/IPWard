@@ -1,4 +1,5 @@
 import { AppProfile, ConnectionEvent, Organization, PrivacyDataset, SensorEvent, SensorType } from '../types';
+import { inferProviderHint } from './providerHints';
 import { utf8ByteLength } from '../utils/export';
 
 const MAX_BYTES = 12_000_000;
@@ -65,25 +66,30 @@ export function parseApplePrivacyReport(content: string): AppleReportResult {
       const domain = field(row.domain).toLowerCase().replace(/\.$/, '');
       const bundle = field(row.bundleID, 300);
       const time = timestamp(row.timeStamp);
+      const firstTime = timestamp(row.firstTimeStamp);
       if (!validDomain(domain) || !bundle || time === null) { skipped++; continue; }
       // The Apple row summarizes a rolling window. Replace the same app/domain
       // on reimport instead of summing overlapping seven-day hit counts.
       const id = `apple-network:${stableId(`${bundle}|${domain}`)}`;
       const owner = field(row.domainOwner, 120);
-      const organizationId = owner ? `apple-owner:${stableId(owner.toLowerCase())}` : null;
+      const providerHint = inferProviderHint(domain);
+      const organizationName = owner || providerHint?.company || null;
+      const organizationId = owner ? `apple-owner:${stableId(owner.toLowerCase())}` : providerHint ? `hint-company:${stableId(providerHint.company.toLowerCase())}` : null;
       if (organizationId && !organizations.has(organizationId)) {
-        organizations.set(organizationId, { id: organizationId, name: owner, initials: owner.slice(0, 2).toUpperCase(), color: '#8EA5BD', description: 'Domain owner label supplied by the imported Apple report; ownership has not been independently verified by IPward.' });
+        organizations.set(organizationId, { id: organizationId, name: organizationName!, initials: organizationName!.slice(0, 2).toUpperCase(), color: '#8EA5BD', description: owner ? 'Domain owner label supplied by the imported Apple report; ownership has not been independently verified by IPward.' : 'Likely provider inferred from a bundled domain suffix hint. This may identify infrastructure rather than the recipient of personal data.' });
       }
       const hits = typeof row.hits === 'number' && Number.isSafeInteger(row.hits) && row.hits > 0 ? row.hits : 1;
       const potentialTracker = row.domainType === 1;
-      const explanation = `Apple App Privacy Report lists ${hits} contact${hits === 1 ? '' : 's'} with this domain during its reporting window. The timestamp is the most recent contact. IPward cannot determine bytes, payload, server location, or whether the app was foregrounded.${potentialTracker ? ' Apple marks this domain as potentially collecting information across apps or sites; this is not proof of tracking in this instance.' : ''}`;
+      const explanation = `Apple App Privacy Report lists ${hits} contact${hits === 1 ? '' : 's'} with this domain during its reporting window. The timestamp is the most recent contact${firstTime !== null && firstTime <= time ? ', and the first contact time is also available' : ''}. Intermediate contact times are unavailable. IPward cannot determine bytes, payload, server location, or whether the app was foregrounded.${potentialTracker ? ' Apple marks this domain as potentially collecting information across apps or sites; this is not proof of tracking in this instance.' : ''}`;
       const existing = connections.get(id);
       if (existing && existing.timestamp > time) continue;
       connections.set(id, {
         id, timestamp: time, appId: ensureApp(bundle), domain, ip: '', port: 0, protocol: 'Unknown', organizationId,
         country: 'Unavailable', countryCode: '', region: '', asn: '', bytesUploaded: 0, bytesDownloaded: 0,
-        bytesMeasured: false, reportHits: hits, potentialTracker, foregroundState: 'unknown', category: 'Unknown',
-        classification: { domain, organizationId, categories: ['Unknown'], confidence: 'low', source: 'unknown', lastUpdated: '', explanation: 'No independently verified endpoint classification is available. Apple’s potential cross-app collection flag is shown separately.' },
+        bytesMeasured: false, reportHits: hits, reportFirstAt: firstTime !== null && firstTime <= time ? firstTime : undefined, potentialTracker, foregroundState: 'unknown', category: providerHint?.categories[0] ?? 'Unknown',
+        classification: providerHint
+          ? { domain, organizationId, categories: providerHint.categories, confidence: 'medium', source: 'bundled-provider-hints', lastUpdated: '2026-10-01', explanation: `${providerHint.note}, inferred from a bundled domain suffix hint. It is not an authoritative owner or tracker database. Apple's potential cross-app flag is displayed separately.` }
+          : { domain, organizationId, categories: ['Unknown'], confidence: 'low', source: 'unknown', lastUpdated: '', explanation: owner ? 'Apple supplied a domain owner label, but IPward has no category hint for this endpoint. Its purpose remains unknown.' : 'No domain owner or endpoint classification is available. Apple’s potential cross-app collection flag is shown separately.' },
         isNewDestination: false, source: 'user-import', provenance: { state: 'Confirmed', source: 'user-import', confidence: 'high', explanation },
       });
     } else if (row.type === 'access') {

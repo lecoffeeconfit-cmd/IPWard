@@ -5,14 +5,15 @@ import { filterByRange, formatBytes, getRangeInterval } from '../services/analyt
 import { Settings, useApp } from '../state/AppContext';
 import { useTheme } from '../theme';
 import { TimeRange } from '../types';
-import { createActivityReport, createConnectionCsv, utf8ByteLength } from '../utils/export';
+import { createActivityReport, createActivityReportHtml, createConnectionCsv, utf8ByteLength } from '../utils/export';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 import { parseApplePrivacyReport } from '../services/appleReport';
 
 type DestructiveAction = 'history' | 'captures' | null;
-type ExportFormat = 'json' | 'csv' | null;
+type ExportFormat = 'json' | 'csv' | 'pdf' | null;
 
 function PreferenceRow({ icon, title, description, value, onChange, disabled = false, last = false }: {
   icon: IconName; title: string; description: string; value: boolean; onChange?: (value: boolean) => void; disabled?: boolean; last?: boolean;
@@ -41,7 +42,7 @@ const monitoringChoices: { name: Settings['monitoring']; icon: IconName; detail:
 ];
 
 export function SettingsScreen() {
-  const { settings, updateSettings, mode, setMode, dataset, range, captures, clearCaptures, clearHistory, importReport, usageAccess, refreshUsage, openUsageSettings, blockedDomains, navigate, toast, setDemoPaused } = useApp();
+  const { settings, updateSettings, mode, setMode, dataset, range, captures, adSightings, networkRules, localReputation, dataFootprints, clearCaptures, clearHistory, importReport, usageAccess, refreshUsage, openUsageSettings, blockedDomains, navigate, toast, setDemoPaused } = useApp();
   const t = useTheme();
   const { width } = useWindowDimensions();
   const twoColumns = width >= 1100;
@@ -55,7 +56,7 @@ export function SettingsScreen() {
   const [importError, setImportError] = useState<string | null>(null);
 
   const loadedBytes = useMemo(() => utf8ByteLength(JSON.stringify(dataset)), [dataset]);
-  const storedBytes = useMemo(() => utf8ByteLength(JSON.stringify({ settings, captures, blockedDomains, mode })), [settings, captures, blockedDomains, mode]);
+  const storedBytes = useMemo(() => utf8ByteLength(JSON.stringify({ settings, captures, adSightings, blockedDomains, networkRules, localReputation, dataFootprints, mode })), [settings, captures, adSightings, blockedDomains, networkRules, localReputation, dataFootprints, mode]);
   const savedCaptureBytes = useMemo(() => utf8ByteLength(JSON.stringify(captures)), [captures]);
   const selectedDataset = useMemo(() => {
     if (exportScope === 'All loaded') return dataset;
@@ -82,7 +83,7 @@ export function SettingsScreen() {
     if (Platform.OS === 'web') return 0;
     let count = 0;
     for (const entry of Paths.cache.list()) {
-      if (entry instanceof File && /^ipward-(demo|device)-\d{4}-\d{2}-\d{2}\.(json|csv)$/.test(entry.name)) {
+      if (entry instanceof File && (/^ipward-(demo|device)-\d{4}-\d{2}-\d{2}\.(json|csv|pdf)$/.test(entry.name) || /^ipward-security-\d{4}-\d{2}-\d{2}\.json$/.test(entry.name))) {
         entry.delete();
         count++;
       }
@@ -105,8 +106,21 @@ export function SettingsScreen() {
     try {
       const interval = exportScope === 'All loaded' ? null : getRangeInterval(exportScope);
       const includedCaptures = interval ? captures.filter(capture => capture.startedAt >= interval.start && capture.startedAt <= interval.end) : captures;
+      if (format === 'pdf') {
+        if (Platform.OS === 'web') throw new Error('PDF export is available in the iOS and Android app.');
+        if (!await Sharing.isAvailableAsync()) throw new Error('The share sheet is unavailable on this device.');
+        const result = await Print.printToFileAsync({ html: createActivityReportHtml(selectedDataset, String(exportScope)) });
+        const filename = `ipward-${mode}-${new Date().toISOString().slice(0, 10)}.pdf`;
+        const source = new File(result.uri);
+        const destination = new File(Paths.cache, filename);
+        await source.move(destination, { overwrite: true });
+        await Sharing.shareAsync(destination.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Export IPward PDF report' });
+        toast('PDF report share sheet closed. The temporary PDF remains in app cache until the system clears it.');
+        setConfirmExport(null);
+        return;
+      }
       const content = format === 'json'
-        ? createActivityReport(selectedDataset, includedCaptures, exportScope)
+        ? createActivityReport(selectedDataset, includedCaptures, exportScope, Date.now(), interval ? adSightings.filter(item => item.observedAt >= interval.start && item.observedAt <= interval.end) : adSightings)
         : createConnectionCsv(selectedDataset);
       const filename = `ipward-${mode}-${new Date().toISOString().slice(0, 10)}.${format}`;
       if (Platform.OS === 'web') {
@@ -166,7 +180,7 @@ export function SettingsScreen() {
         await clearHistory();
         let cacheCleared = true;
         try { removeTemporaryReports(); } catch { cacheCleared = false; }
-        toast(cacheCleared ? 'Workspace history, saved captures, and temporary exports cleared.' : 'Workspace history cleared. Temporary exports could not be removed; use Clear temporary exports to retry.');
+        toast(cacheCleared ? 'Workspace history, account-export inventories, ad notes, saved captures, and temporary exports cleared.' : 'Workspace history, account-export inventories, and ad notes cleared. Temporary exports could not be removed; use Clear temporary exports to retry.');
       }
       catch { toast('Could not delete imported history. Please try again.'); return; }
     } else if (confirmDelete === 'captures') {
@@ -244,14 +258,18 @@ export function SettingsScreen() {
       <View style={local.column}>
         <Card>
           <SectionHeading title="History & storage" subtitle="Keep only what you need"/>
-          <Txt size={12} weight="500" style={{ marginBottom: 12 }}>Saved capture retention</Txt>
+          <Txt size={12} weight="500" style={{ marginBottom: 12 }}>Local history retention</Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{[1, 7, 30, 90, 0].map(days => <Pill key={days} label={days === 0 ? 'Forever' : `${days} ${days === 1 ? 'day' : 'days'}`} active={settings.retention === days} onPress={() => updateSettings({ retention: days })}/>)}</View>
-          <Txt size={11} color={t.muted} style={{ marginTop: 13, marginBottom: 21 }}>Saved captures and imported events older than this window are removed from local storage. Bundled sample history remains available to explore.</Txt>
+          <Txt size={11} color={t.muted} style={{ marginTop: 13, marginBottom: 21 }}>Saved captures, ad notes, and imported events older than this window are removed from local storage. Bundled sample history remains available to explore.</Txt>
           <View style={{ borderTopWidth: 1, borderColor: t.border, paddingTop: 18, gap: 14 }}>
             <View style={local.between}><Txt size={12} color={t.muted}>Saved captures</Txt><Txt size={13} weight="500">{captures.length}</Txt></View>
+            <View style={local.between}><Txt size={12} color={t.muted}>Your ad notes</Txt><Txt size={13} weight="500">{adSightings.length}</Txt></View>
+            <View style={local.between}><Txt size={12} color={t.muted}>Saved local rules</Txt><Txt size={13} weight="500">{blockedDomains.length + networkRules.length}</Txt></View>
+            <View style={local.between}><Txt size={12} color={t.muted}>Local reputation domains</Txt><Txt size={13} weight="500">{localReputation?.domains.length.toLocaleString() ?? 'None'}</Txt></View>
+            <View style={local.between}><Txt size={12} color={t.muted}>Account-export inventories</Txt><Txt size={13} weight="500">{dataFootprints.length}</Txt></View>
             <View style={local.between}><Txt size={12} color={t.muted}>Imported observations</Txt><Txt size={13} weight="500">{mode === 'device' ? dataset.connections.length + dataset.sensors.length : 'Switch to My device'}</Txt></View>
             <View style={local.between}><Txt size={12} color={t.muted}>Capture payload estimate</Txt><Txt size={13} weight="500">{formatBytes(savedCaptureBytes)}</Txt></View>
-            <View style={local.between}><Txt size={12} color={t.muted}>Preferences + captures</Txt><Txt size={13} weight="500">{formatBytes(storedBytes)}</Txt></View>
+            <View style={local.between}><Txt size={12} color={t.muted}>Preferences + local notes</Txt><Txt size={13} weight="500">{formatBytes(storedBytes)}</Txt></View>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 23 }}>
             <Button label="Delete captures" icon="trash-2" variant="secondary" small onPress={() => setConfirmDelete('captures')} disabled={captures.length === 0}/>
@@ -260,7 +278,7 @@ export function SettingsScreen() {
           </View>
           {confirmDelete && <View accessibilityLiveRegion="polite" style={[local.confirmation, { backgroundColor: t.elevated, borderColor: t.border }]}>
             <Txt size={13} weight="600">{confirmDelete === 'history' ? 'Clear this workspace?' : 'Delete all saved captures?'}</Txt>
-            <Txt size={12} color={t.muted} style={{ marginVertical: 9 }}>{confirmDelete === 'history' ? 'This deletes imported report observations, saved captures, and temporary report exports from app cache. Android usage totals come from the operating system and will reappear while Usage Access is granted. Preferences stay in place.' : 'Saved captures and any active capture will be removed. This cannot be undone.'}</Txt>
+            <Txt size={12} color={t.muted} style={{ marginVertical: 9 }}>{confirmDelete === 'history' ? 'This deletes imported report observations, account-export inventories, ad notes, saved captures, and temporary report exports from app cache. Android usage totals come from the operating system and will reappear while Usage Access is granted. Preferences stay in place.' : 'Saved captures and any active capture will be removed. This cannot be undone.'}</Txt>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><Button label={confirmDelete === 'history' ? 'Confirm clear history' : 'Confirm delete captures'} variant="danger" onPress={deleteSelected} small/><Button label="Cancel" variant="secondary" onPress={() => setConfirmDelete(null)} small/></View>
           </View>}
         </Card>
@@ -274,11 +292,11 @@ export function SettingsScreen() {
             <Pill label="All loaded" active={exportScope === 'All loaded'} onPress={() => selectScope('All loaded')}/>
           </View>
           <Txt size={12} color={t.muted}>{selectedDataset.connections.length.toLocaleString()} {mode === 'device' ? 'domain records' : 'connections'} · {selectedDataset.sensors.length.toLocaleString()} {mode === 'device' ? 'sensor intervals' : 'sensor events'} · {(selectedDataset.appUsage ?? []).length.toLocaleString()} app-use days</Txt>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 17 }}><Button label="Activity JSON" icon="file-text" variant="secondary" onPress={() => { setConfirmExport('json'); setExportError(null); }} small disabled={exportBusy}/><Button label="Connections CSV" icon="download" variant="secondary" onPress={() => { setConfirmExport('csv'); setExportError(null); }} small disabled={exportBusy}/></View>
-          <Txt size={11} color={t.muted} style={{ marginTop: 13 }}>JSON includes activity and captures started in the selected period. CSV includes connection rows. Every event retains its source and evidence label.</Txt>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 17 }}><Button label="Activity JSON" icon="file-text" variant="secondary" onPress={() => { setConfirmExport('json'); setExportError(null); }} small disabled={exportBusy}/><Button label="Connections CSV" icon="download" variant="secondary" onPress={() => { setConfirmExport('csv'); setExportError(null); }} small disabled={exportBusy}/>{Platform.OS !== 'web' && <Button label="Privacy PDF" icon="file" variant="secondary" onPress={() => { setConfirmExport('pdf'); setExportError(null); }} small disabled={exportBusy}/>}</View>
+          <Txt size={11} color={t.muted} style={{ marginTop: 13 }}>JSON includes activity, ad notes, and captures in the selected period. CSV includes complete connection rows. PDF provides a readable, capped summary for sharing with a trusted professional. Every event retains its source and evidence label.</Txt>
           {confirmExport && <View accessibilityLiveRegion="polite" style={[local.confirmation, { backgroundColor: t.amberTint, borderColor: t.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon name="file-text" size={16} color={t.amber}/><Txt size={13} weight="600" color={t.amber}>This report contains activity metadata</Txt></View>
-            <Txt size={12} color={t.muted} style={{ marginVertical: 10 }}>App names, timestamps, domains, and destinations may reveal private activity. {mode === 'demo' ? 'This workspace contains labelled sample data. ' : ''}{Platform.OS === 'web' ? 'The report will download to this device.' : 'A report file will open in your share sheet. Choose a destination you trust. A temporary copy remains in app cache.'}</Txt>
+            <Txt size={12} color={t.muted} style={{ marginVertical: 10 }}>App names, timestamps, domains, destinations, and any ad wording you entered may reveal private activity. {mode === 'demo' ? 'This workspace contains labelled sample data; ad notes are your own. ' : ''}{Platform.OS === 'web' ? 'The report will download to this device.' : 'A report file will open in your share sheet. Choose a destination you trust. A temporary copy remains in app cache.'}</Txt>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><Button label={exportBusy ? 'Preparing…' : Platform.OS === 'web' ? 'Download report' : 'Open share sheet'} icon="download" onPress={() => { void exportReport(confirmExport); }} disabled={exportBusy} small/><Button label="Cancel export" variant="ghost" onPress={() => setConfirmExport(null)} disabled={exportBusy} small/></View>
           </View>}
           {exportError && <Txt accessibilityRole="alert" size={12} color={t.red} style={{ marginTop: 14 }}>{exportError}</Txt>}

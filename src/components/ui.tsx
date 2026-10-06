@@ -32,11 +32,11 @@ export function Button({ label, onPress, icon, variant = 'primary', disabled = f
   const [scale] = useState(() => new Animated.Value(1));
   const animate = (toValue: number) => Animated.spring(scale, { toValue, speed: 24, bounciness: 9, useNativeDriver: true }).start();
   const primary = variant === 'primary';
-  const foreground = primary ? '#FFFFFF' : variant === 'danger' ? t.red : t.text;
-  const background = primary ? (t.light ? '#B35414' : '#D56528') : variant === 'secondary' ? t.elevated : 'transparent';
-  return <Animated.View style={{ transform: [{ scale }] }}><Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} onPressIn={() => animate(0.94)} onPressOut={() => animate(1)} style={({ pressed }) => ({ minHeight: small ? 40 : 49, paddingHorizontal: small ? 14 : 18, backgroundColor: background, borderWidth: 1, borderColor: primary ? (t.light ? '#A34A12' : '#FEA34C') : pressed ? t.blue : t.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, overflow: 'hidden', opacity: disabled ? 0.4 : 1, ...controlShape })}>
-    {primary && <LinearGradient colors={t.light ? ['#E48739', '#A84816'] : ['#FFA34B', '#D45521']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}/>}
-    <View style={{ pointerEvents: 'none', position: 'absolute', top: 1, left: 15, right: 15, height: 1, backgroundColor: primary ? '#FFE0B4' : t.light ? '#FFFFFF' : '#7C8A91', opacity: primary ? 0.55 : 0.28 }}/>
+  const foreground = primary ? (t.light ? '#FFFFFF' : '#071B0D') : variant === 'danger' ? t.red : t.text;
+  const background = primary ? (t.light ? '#007A2B' : '#00B83D') : variant === 'secondary' ? t.elevated : 'transparent';
+  return <Animated.View style={{ transform: [{ scale }] }}><Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} onPressIn={() => animate(0.94)} onPressOut={() => animate(1)} style={({ pressed }) => ({ minHeight: small ? 40 : 49, paddingHorizontal: small ? 14 : 18, backgroundColor: background, borderWidth: 1, borderColor: primary ? (t.light ? '#005E23' : '#00FF41') : pressed ? t.blue : t.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, overflow: 'hidden', opacity: disabled ? 0.4 : 1, ...controlShape })}>
+    {primary && <LinearGradient colors={t.light ? ['#00852F', '#005E23'] : ['#45FF74', '#00B83D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}/>}
+    <View style={{ pointerEvents: 'none', position: 'absolute', top: 1, left: 15, right: 15, height: 1, backgroundColor: primary ? (t.light ? '#A8E5B7' : '#B8FFCA') : t.light ? '#FFFFFF' : '#7C8A91', opacity: primary ? 0.55 : 0.28 }}/>
     {icon && <Icon name={icon} color={foreground} size={small ? 15 : 17}/>}
     <Txt size={small ? 11 : 12} weight="700" color={foreground} style={{ letterSpacing: 0.35 }}>{label}</Txt>
   </Pressable></Animated.View>;

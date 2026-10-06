@@ -1,13 +1,13 @@
 import { DataMode } from '../types';
 
-export type CapabilityKey = 'appleReportImport' | 'networkMonitoring' | 'perAppNetworkAttribution' | 'deviceActivity' | 'notificationActivity' | 'callObservation' | 'smsExactCount' | 'emailIntegration' | 'sensorHistory' | 'locationActivity' | 'trackerBlocking';
+export type CapabilityKey = 'appleReportImport' | 'networkMonitoring' | 'perAppNetworkAttribution' | 'deviceActivity' | 'notificationActivity' | 'callObservation' | 'smsExactCount' | 'emailIntegration' | 'sensorHistory' | 'locationActivity' | 'trackerBlocking' | 'behaviorBaselines' | 'threatIntelligence';
 export interface Capability { key: CapabilityKey; title: string; available: boolean; state: 'available' | 'demo' | 'unavailable'; reason: string; integration: string }
 export type CapabilityMatrix = Record<CapabilityKey, Capability>;
-export const CAPABILITY_KEYS: CapabilityKey[] = ['appleReportImport', 'networkMonitoring', 'perAppNetworkAttribution', 'deviceActivity', 'notificationActivity', 'callObservation', 'smsExactCount', 'emailIntegration', 'sensorHistory', 'locationActivity', 'trackerBlocking'];
-const titles: Record<CapabilityKey, string> = { appleReportImport: 'Apple report import', networkMonitoring: 'Network monitoring', perAppNetworkAttribution: 'App attribution', deviceActivity: 'App usage', notificationActivity: 'Notification activity', callObservation: 'Call observation', smsExactCount: 'Exact message counts', emailIntegration: 'Email integration', sensorHistory: 'Sensor history', locationActivity: 'Location activity', trackerBlocking: 'Tracker blocking' };
+export const CAPABILITY_KEYS: CapabilityKey[] = ['appleReportImport', 'networkMonitoring', 'perAppNetworkAttribution', 'deviceActivity', 'notificationActivity', 'callObservation', 'smsExactCount', 'emailIntegration', 'sensorHistory', 'locationActivity', 'trackerBlocking', 'behaviorBaselines', 'threatIntelligence'];
+const titles: Record<CapabilityKey, string> = { appleReportImport: 'Apple report import', networkMonitoring: 'Network monitoring', perAppNetworkAttribution: 'App attribution', deviceActivity: 'App usage', notificationActivity: 'Notification activity', callObservation: 'Call observation', smsExactCount: 'Exact message counts', emailIntegration: 'Email integration', sensorHistory: 'Sensor history', locationActivity: 'Location activity', trackerBlocking: 'Tracker blocking', behaviorBaselines: 'Behavior baselines', threatIntelligence: 'Threat reputation' };
 
 /** Native Android app-use totals are available with authorization; no network monitor is connected. */
-export function getCapabilities(platform: string, mode: DataMode = 'device', androidUsageAuthorized = false): CapabilityMatrix {
+export function getCapabilities(platform: string, mode: DataMode = 'device', androidUsageAuthorized = false, hasLocalReputationList = false): CapabilityMatrix {
   const ios = platform === 'ios';
   const android = platform === 'android';
   const integrations: Record<CapabilityKey, string> = {
@@ -22,11 +22,14 @@ export function getCapabilities(platform: string, mode: DataMode = 'device', and
     sensorHistory: 'No cross-app sensor history adapter is integrated. Permission status and access events are different facts.',
     locationActivity: 'IPward’s own location permission cannot reveal other apps’ location access. An imported Apple report can include past location-access intervals.',
     trackerBlocking: 'Requires a native filtering implementation, supported platform permissions, and verified rule enforcement.',
+    behaviorBaselines: 'Requires at least three observed days of event-level network records stored locally. Imported Apple report rows are rolling aggregates and cannot support daily comparisons.',
+    threatIntelligence: 'No independently verified feed is installed. An optional user-imported exact-domain list is checked locally and is not independently verified.',
   };
   return Object.fromEntries(CAPABILITY_KEYS.map(key => {
     if (key === 'appleReportImport') return [key, { key, title: titles[key], available: true, state: 'available', reason: integrations[key], integration: integrations[key] }];
     if (key === 'deviceActivity' && android && mode === 'device' && androidUsageAuthorized) return [key, { key, title: titles[key], available: true, state: 'available', reason: 'Android Usage Access is granted. IPward can read daily foreground-time aggregates for apps used on this device. This does not reveal in-app activity or message counts.', integration: integrations[key] }];
-    const demonstrable = mode === 'demo' && key !== 'smsExactCount' && key !== 'trackerBlocking';
+    if (key === 'threatIntelligence' && hasLocalReputationList) return [key, { key, title: titles[key], available: true, state: 'available', reason: 'A user-imported exact-domain list is installed and checked on this device. Its source and threat type are not independently verified; observed domains are not sent to an external service.', integration: integrations[key] }];
+    const demonstrable = mode === 'demo' && key !== 'smsExactCount' && key !== 'trackerBlocking' && key !== 'threatIntelligence';
     return [key, { key, title: titles[key], available: demonstrable, state: demonstrable ? 'demo' : 'unavailable', reason: demonstrable ? 'Illustrative sample data only. This capability is not active on your device.' : integrations[key], integration: integrations[key] }];
   })) as CapabilityMatrix;
 }

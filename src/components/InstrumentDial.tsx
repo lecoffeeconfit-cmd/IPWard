@@ -2,7 +2,7 @@ import React, { memo, useEffect, useId, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, AppState, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Line, RadialGradient, Stop } from 'react-native-svg';
 import { useTheme } from '../theme';
-import { Txt } from './ui';
+import { Icon, Txt } from './ui';
 
 interface InstrumentDialProps {
   value: string | number;
@@ -62,9 +62,11 @@ export const InstrumentDial = memo(function InstrumentDial({ value, label, size 
       <Svg width={size} height={size} viewBox="0 0 240 240"><Circle cx="120" cy="120" r="94" fill="none" stroke={t.blue} strokeWidth="4" strokeLinecap="round" strokeDasharray="92 500" transform="rotate(-90 120 120)"/><Circle cx="120" cy="26" r="4" fill={t.blue}/></Svg>
     </Animated.View>
     <Animated.View style={{ pointerEvents: 'none', alignItems: 'center', opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>
-      <Txt size={size < 205 ? 36 : 43} weight="500" color={t.blue} style={{ letterSpacing: -2, fontVariant: ['tabular-nums'] }}>{value}</Txt>
-      <View style={{ width: 30, height: 2, backgroundColor: t.cyan, borderRadius: 2, marginTop: 1, marginBottom: 6 }}/>
-      <Txt size={9} color={t.muted} weight="700" style={{ letterSpacing: 1.7, textAlign: 'center' }}>{label.toUpperCase()}</Txt>
+      <View style={{ width: size < 205 ? 49 : 56, height: size < 205 ? 49 : 56, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="wifi" size={size < 205 ? 38 : 44} color={t.blue}/>
+      </View>
+      <Txt size={size < 205 ? 29 : 34} weight="600" color={t.blue} style={{ marginTop: 1, lineHeight: size < 205 ? 32 : 37, letterSpacing: -1.5, fontVariant: ['tabular-nums'] }}>{value}</Txt>
+      <Txt size={size < 205 ? 8 : 9} color={t.muted} weight="700" style={{ letterSpacing: 1.45, lineHeight: 12, textAlign: 'center' }}>{label.toUpperCase()}</Txt>
     </Animated.View>
   </View>;
   return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={`${value} ${label}. Open details.`} onPress={onPress}>{face}</Pressable> : <View accessible accessibilityRole="text" accessibilityLabel={`${value} ${label}`}>{face}</View>;

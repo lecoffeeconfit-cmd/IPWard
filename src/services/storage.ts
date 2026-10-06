@@ -1,4 +1,4 @@
-import { CaptureSession, ConnectionEvent, DataMode, Provenance, SensorEvent } from '../types';
+import { AdSighting, CaptureSession, ConnectionEvent, DataMode, NewDomainNotice, Provenance, SensorEvent } from '../types';
 import { summarizeConnections } from './analytics';
 
 export interface KeyValueStorage { getItem(key: string): Promise<string | null>; setItem(key: string, value: string): Promise<void>; removeItem(key: string): Promise<void> }
@@ -42,13 +42,31 @@ const sources = ['demo', 'network-extension', 'vpn-service', 'device-activity', 
 const categories = ['App service', 'CDN', 'Authentication', 'Cloud', 'Analytics', 'Advertising', 'Attribution', 'Marketing', 'Telemetry', 'Crash reporting', 'Communication', 'Unknown'];
 const sourceValid = (value: unknown) => typeof value === 'string' && sources.includes(value);
 const foregroundValid = (value: unknown) => ['foreground', 'background', 'unknown'].includes(String(value));
+export function isStoredAdSighting(value: unknown): value is AdSighting {
+  return isRecord(value) && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 100
+    && nonnegative(value.observedAt) && value.observedAt <= Date.now() + 86_400_000
+    && typeof value.appName === 'string' && value.appName.trim().length > 0 && value.appName.length <= 80
+    && typeof value.wording === 'string' && value.wording.trim().length > 0 && value.wording.length <= 280
+    && (value.recalledOrigin === undefined || ['spoken', 'browser-typing', 'other', 'unsure'].includes(String(value.recalledOrigin)))
+    && (value.topics === undefined || Array.isArray(value.topics) && value.topics.length <= 10 && value.topics.every(topic => typeof topic === 'string' && topic.trim().length > 0 && topic.length <= 40))
+    && value.source === 'user-note';
+}
+export function isStoredNewDomainNotice(value: unknown): value is NewDomainNotice {
+  return isRecord(value) && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 512
+    && (value.appId === null || typeof value.appId === 'string')
+    && typeof value.appName === 'string' && value.appName.length <= 160
+    && typeof value.domain === 'string' && value.domain.length > 0 && value.domain.length <= 253
+    && (value.organizationName === null || typeof value.organizationName === 'string' && value.organizationName.length <= 200)
+    && typeof value.organizationHint === 'boolean' && typeof value.potentialTracker === 'boolean' && nonnegative(value.firstSeenAt) && value.firstSeenAt <= Date.now() + 86_400_000
+    && value.source === 'user-import';
+}
 function isProvenance(value: unknown): value is Provenance {
   return isRecord(value) && ['Confirmed', 'Observed', 'Estimated', 'Unavailable'].includes(String(value.state)) && sourceValid(value.source) && ['high', 'medium', 'low'].includes(String(value.confidence)) && typeof value.explanation === 'string';
 }
 function isConnection(value: unknown): value is ConnectionEvent {
   if (!isRecord(value) || !isRecord(value.classification)) return false;
   const classification = value.classification;
-  return ['id', 'domain', 'ip', 'country', 'countryCode', 'region', 'asn'].every(key => typeof value[key] === 'string') && nonnegative(value.timestamp) && (value.appId === null || typeof value.appId === 'string') && (value.organizationId === null || typeof value.organizationId === 'string') && nonnegative(value.port) && value.port <= 65535 && ['TLS', 'QUIC', 'HTTPS', 'Unknown'].includes(String(value.protocol)) && nonnegative(value.bytesUploaded) && nonnegative(value.bytesDownloaded) && (value.bytesMeasured === undefined || typeof value.bytesMeasured === 'boolean') && (value.reportHits === undefined || nonnegative(value.reportHits)) && foregroundValid(value.foregroundState) && categories.includes(String(value.category)) && typeof value.isNewDestination === 'boolean' && sourceValid(value.source) && isProvenance(value.provenance) && typeof classification.domain === 'string' && (classification.organizationId === null || typeof classification.organizationId === 'string') && Array.isArray(classification.categories) && classification.categories.every(category => categories.includes(category)) && ['high', 'medium', 'low'].includes(String(classification.confidence)) && ['bundled-demo-rules', 'unknown'].includes(String(classification.source)) && typeof classification.lastUpdated === 'string' && typeof classification.explanation === 'string';
+  return ['id', 'domain', 'ip', 'country', 'countryCode', 'region', 'asn'].every(key => typeof value[key] === 'string') && nonnegative(value.timestamp) && (value.appId === null || typeof value.appId === 'string') && (value.organizationId === null || typeof value.organizationId === 'string') && nonnegative(value.port) && value.port <= 65535 && ['TLS', 'QUIC', 'HTTPS', 'Unknown'].includes(String(value.protocol)) && nonnegative(value.bytesUploaded) && nonnegative(value.bytesDownloaded) && (value.bytesMeasured === undefined || typeof value.bytesMeasured === 'boolean') && (value.reportHits === undefined || nonnegative(value.reportHits)) && (value.reportFirstAt === undefined || nonnegative(value.reportFirstAt) && value.reportFirstAt <= value.timestamp) && foregroundValid(value.foregroundState) && categories.includes(String(value.category)) && typeof value.isNewDestination === 'boolean' && sourceValid(value.source) && isProvenance(value.provenance) && typeof classification.domain === 'string' && (classification.organizationId === null || typeof classification.organizationId === 'string') && Array.isArray(classification.categories) && classification.categories.every(category => categories.includes(category)) && ['high', 'medium', 'low'].includes(String(classification.confidence)) && ['bundled-demo-rules', 'bundled-provider-hints', 'unknown'].includes(String(classification.source)) && typeof classification.lastUpdated === 'string' && typeof classification.explanation === 'string';
 }
 function isSensor(value: unknown): value is SensorEvent {
   return isRecord(value) && typeof value.id === 'string' && nonnegative(value.timestamp) && nonnegative(value.timestampEnd) && value.timestampEnd >= value.timestamp && (value.appId === null || typeof value.appId === 'string') && ['Microphone', 'Camera', 'Location', 'Photos', 'Contacts', 'Bluetooth', 'Calendar'].includes(String(value.sensor)) && foregroundValid(value.foregroundState) && sourceValid(value.source) && isProvenance(value.provenance);

@@ -31,7 +31,7 @@ export const NetworkCore = memo(function NetworkCore({
   const uniqueId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const haloId = `coreHalo${uniqueId}`;
   const phoneId = `phoneHalo${uniqueId}`;
-  const blue = light ? '#B55B1C' : '#FF9D4B';
+  const blue = light ? '#007A2B' : '#00FF41';
   const cyan = light ? '#187D83' : '#70DCE0';
   const muted = light ? '#A8B8B7' : '#4B6065';
 
@@ -125,7 +125,7 @@ export const NetworkCore = memo(function NetworkCore({
         <Circle cx="160" cy="160" r="71" fill={`url(#${phoneId})`} />
         <Circle cx="160" cy="160" r="48" fill={light ? '#E8ECE9' : '#1C262B'} stroke={blue} strokeWidth="0.75" strokeOpacity="0.22" />
         <Circle cx="160" cy="160" r="42" fill="none" stroke={blue} strokeWidth="0.5" opacity="0.11" />
-        <Rect x="143" y="132" width="34" height="56" rx="8" stroke={light ? '#B45C20' : '#FFC188'} strokeWidth="1.8" fill={light ? '#F4F6F2' : '#263036'} />
+        <Rect x="143" y="132" width="34" height="56" rx="8" stroke={light ? '#007A2B' : '#8DFFAE'} strokeWidth="1.8" fill={light ? '#F4F6F2' : '#263036'} />
         <Line x1="155" y1="138" x2="165" y2="138" stroke={blue} strokeWidth="1.8" strokeLinecap="round" />
         <Line x1="154" y1="181" x2="166" y2="181" stroke={blue} strokeWidth="1.7" strokeLinecap="round" />
         <Circle cx="160" cy="158" r="6" stroke={cyan} strokeWidth="1.1" fill="none" opacity={active ? 0.9 : 0.4} />

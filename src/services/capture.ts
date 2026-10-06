@@ -46,7 +46,7 @@ export function compareCaptures(before: CaptureSession, after: CaptureSession) {
 }
 
 export function exportCaptureJSON(capture: CaptureSession): string {
-  return JSON.stringify({ product: 'IPward', reportType: capture.kind === 'report-snapshot' ? 'historical-report-snapshot' : 'capture', exportedAt: new Date().toISOString(), notice: capture.mode === 'demo' ? 'SAMPLE DATA. This report does not describe activity on your device.' : capture.kind === 'report-snapshot' ? 'Historical user-imported Apple report. Domain rows summarize contacts over a rolling window, not live connections. Transfer bytes are unavailable.' : 'This report includes sensitive connection metadata. Share it only with people you trust.', limitations: ['Encrypted payload contents are unavailable.', 'Endpoint country does not establish where personal information is stored.', 'Endpoint categories do not establish the purpose of a specific transfer.'], capture }, null, 2);
+  return JSON.stringify({ product: 'IPward', reportType: capture.kind === 'report-snapshot' ? 'historical-report-snapshot' : 'capture', exportedAt: new Date().toISOString(), notice: capture.mode === 'demo' ? 'SAMPLE DATA. This report does not describe activity on your device.' : capture.kind === 'report-snapshot' ? 'Historical user-imported Apple report. Domain rows summarize contacts over a rolling window, not live connections. Transfer bytes are unavailable.' : 'This report includes sensitive connection metadata. Share it only with people you trust.', limitations: ['Encrypted payload contents are unavailable.', 'Apple domain rows may include first and latest contact times but not intermediate contact times.', 'Endpoint country does not establish where personal information is stored.', 'Endpoint categories and timing proximity do not establish the purpose or contents of a specific transfer.'], capture }, null, 2);
 }
 
 function csvCell(value: string | number | null): string {
@@ -56,7 +56,7 @@ function csvCell(value: string | number | null): string {
   return `"${safe.replace(/"/g, '""')}"`;
 }
 export function exportCaptureCSV(capture: CaptureSession): string {
-  const header = ['source', 'timestamp', 'app_id', 'domain', 'organization_id', 'country', 'category', 'uploaded_bytes', 'downloaded_bytes', 'reported_contacts', 'foreground_state', 'evidence'];
-  const rows = capture.connections.map(event => [event.source, new Date(event.timestamp).toISOString(), event.appId ?? '', event.domain, event.organizationId ?? '', event.country, event.category, event.bytesMeasured === false ? null : event.bytesUploaded, event.bytesMeasured === false ? null : event.bytesDownloaded, event.reportHits ?? null, event.foregroundState, event.provenance.state]);
+  const header = ['source', 'timestamp', 'first_contact_utc', 'app_id', 'domain', 'organization_id', 'country', 'category', 'uploaded_bytes', 'downloaded_bytes', 'reported_contacts', 'foreground_state', 'evidence'];
+  const rows = capture.connections.map(event => [event.source, new Date(event.timestamp).toISOString(), event.reportFirstAt ? new Date(event.reportFirstAt).toISOString() : null, event.appId ?? '', event.domain, event.organizationId ?? '', event.country, event.category, event.bytesMeasured === false ? null : event.bytesUploaded, event.bytesMeasured === false ? null : event.bytesDownloaded, event.reportHits ?? null, event.foregroundState, event.provenance.state]);
   return [header, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
 }

@@ -4,6 +4,7 @@ import { Badge, Button, Card, EmptyState, Icon, InfoNote, Metric, SectionHeading
 import { useApp } from '../state/AppContext';
 import { useTheme } from '../theme';
 import { filterByRange } from '../services/analytics';
+import { ChartPanel, HorizontalBarChart, HourlyBarChart } from '../components/DashboardCharts';
 
 const duration = (seconds: number) => seconds >= 3600 ? `${Math.floor(seconds / 3600)}h ${Math.floor(seconds % 3600 / 60)}m` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 
@@ -20,6 +21,14 @@ export function CommunicationScreen() {
   const notifications = events.filter(event => event.type === 'notification').reduce((sum, event) => sum + event.count, 0);
   const totalUsage = usage.reduce((sum, event) => sum + event.durationSeconds, 0);
   const appUsage = dataset.apps.map(app => ({ app, seconds: usage.filter(event => event.appId === app.id).reduce((sum, event) => sum + event.durationSeconds, 0) })).filter(item => item.seconds > 0).sort((a, b) => b.seconds - a.seconds);
+  const hourly = Array.from({ length: 24 }, (_, hour) => events.filter(event => new Date(event.timestamp).getHours() === hour).length);
+  const typeRows = [
+    { id: 'app-usage', label: 'App activity records', value: usage.length, detail: 'Time summaries, not message counts', color: t.blue },
+    { id: 'call', label: 'Call records', value: calls.length, detail: 'Sample metadata rows', color: t.cyan },
+    { id: 'email', label: 'Email records', value: email.length, detail: 'Sample metadata rows', color: t.purple },
+    { id: 'notification', label: 'Notification records', value: events.filter(event => event.type === 'notification').length, detail: 'Not message counts', color: t.amber },
+  ].filter(row => row.value > 0);
+  const usageRows = appUsage.slice(0, 6).map(({ app, seconds }) => ({ id: app.id, label: app.name, value: seconds, displayValue: duration(seconds), detail: 'Sample foreground activity', color: app.color }));
   if (mode === 'device') return <View style={styles.stack}><EmptyState title="Communication activity is unavailable" description="No authorized communication source is connected. This build cannot read your messages, call history, notifications, or another app’s usage." icon="message-circle" action="Explore sample communication" onAction={() => setMode('demo')} /><Card><SectionHeading title="Connect on your terms" subtitle="Email integration foundation" /><Badge state="Unavailable" /><Txt size={13} color={t.muted} style={{ marginVertical: 12 }}>Gmail and Outlook connections are not implemented in this build. No account is connected and no email is read.</Txt><Button label="View capabilities" icon="arrow-up-right" variant="secondary" onPress={() => navigate('Trust')} /></Card></View>;
   return <View style={styles.stack}>
     <View style={styles.wrap}>
@@ -34,6 +43,7 @@ export function CommunicationScreen() {
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: explanation }} onPress={() => setExplanation(value => !value)} style={{ ...styles.row, minHeight: 44, marginTop: 8 }}><Txt size={12} color={t.purple} weight="600">How would an estimate work?</Txt><Icon name={explanation ? 'chevron-up' : 'chevron-down'} color={t.purple} size={15} /></Pressable>
       {explanation && <View style={{ gap: 12, paddingTop: 7 }}><Txt size={12} color={t.muted}>A future supported source could correlate foreground activity with eligible notification and network events in a defined time window. The output would describe activity windows, with confidence, input signals, time, and algorithm version attached.</Txt><Txt size={12} color={t.muted}>It would still not reveal a message’s content, recipient, or an exact message count. Incoming and outgoing splits require their own evidence.</Txt></View>}
     </Card>
+    <Card><SectionHeading title="Communication activity graphs" subtitle="A visual summary of the sample metadata currently available"/><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}><ChartPanel title="ACTIVITY BY HOUR" subtitle={`${range} · metadata records`} color={t.purple}><HourlyBarChart values={hourly} color={t.purple} accessibilityLabel={`Communication metadata records by hour. ${events.length} total records.`}/></ChartPanel><ChartPanel title="RECORD MIX" subtitle="Available source types" color={t.blue}><HorizontalBarChart rows={typeRows} color={t.blue}/></ChartPanel><ChartPanel title="APP ACTIVITY TIME" subtitle="Sample foreground activity" color={t.cyan}><HorizontalBarChart rows={usageRows} color={t.cyan} onPress={row => openDetail({ type: 'app', id: row.id })}/></ChartPanel></View><InfoNote>These graphs summarize metadata records and app time. They do not represent message counts, conversation content, recipients, or time spent communicating.</InfoNote></Card>
     <View style={styles.wrap}>
       <Card style={{ flex: 1, minWidth: 260 }}>
         <SectionHeading title="Communication app activity" subtitle={`${range} · Simulated usage source`} />

@@ -4,22 +4,25 @@
     "slug": "ipward",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/sentryward-icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.ipward.mobile"
+      "bundleIdentifier": "com.lecoffeeconfit.ipward",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0A0D17",
-        "foregroundImage": "./assets/icon.png"
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/sentryward-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.ipward.mobile"
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/sentryward-favicon.png",
       "bundler": "metro",
       "name": "IPward — Your phone, visible"
     },
@@ -29,6 +32,13 @@
       "expo-font",
       "expo-sharing"
     ],
-    "scheme": "ipward"
+    "scheme": "ipward",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8f3685fb-dcf2-4ab8-8f13-d1453a1566d5"
+      }
+    },
+    "owner": "lecoffeeconfit"
   }
 }

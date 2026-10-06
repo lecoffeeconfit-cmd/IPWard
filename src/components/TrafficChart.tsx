@@ -11,7 +11,7 @@ export interface TrafficChartProps {
 }
 
 /** Samples are provided by the caller; missing data renders an empty grid. */
-export const TrafficChart = memo(function TrafficChart({ values, height = 95, color = '#FF963C', light = false, reducedMotion = false }: TrafficChartProps) {
+export const TrafficChart = memo(function TrafficChart({ values, height = 95, color = '#00FF41', light = false, reducedMotion = false }: TrafficChartProps) {
   const gradientId = `traffic${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const chartHeight = Math.max(24, height);
   const scan = useRef(new Animated.Value(0)).current;

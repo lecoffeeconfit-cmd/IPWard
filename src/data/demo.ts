@@ -67,7 +67,7 @@ export function createDemoDataset(anchor = Date.now()): PrivacyDataset {
       const seed = SEEDS[(index + day * 3) % SEEDS.length];
       const classification = classifyDomain(seed.domain);
       const weight = 0.65 + ((index * 13 + day * 7) % 97) / 100;
-      connections.push({ id: `demo-connection-${day}-${index}`, timestamp: start + Math.floor(span * (index + 1) / (total + 1)), appId: seed.appId, domain: seed.domain, ip: `203.0.113.${(index % 250) + 1}`, port: 443, protocol: index % 4 === 0 ? 'QUIC' : 'TLS', organizationId: classification.organizationId, country: seed.country, countryCode: seed.code, region: seed.region, asn: 'Documentation address', bytesUploaded: Math.round(seed.upload * weight), bytesDownloaded: Math.round(seed.download * weight), foregroundState: seed.background ? 'background' : 'foreground', category: classification.categories[0], classification, isNewDestination: day === 0 && index > total - 8 && index % 2 === 0, source: 'demo', provenance: observed });
+      connections.push({ id: `demo-connection-${day}-${index}`, timestamp: start + Math.floor(span * (index + 1) / (total + 1)), appId: seed.appId, domain: seed.domain, ip: `203.0.113.${(index % 250) + 1}`, port: 443, protocol: index % 4 === 0 ? 'QUIC' : 'TLS', organizationId: classification.organizationId, country: seed.country, countryCode: seed.code, region: seed.region, asn: 'Documentation address', bytesUploaded: Math.round(seed.upload * weight), bytesDownloaded: Math.round(seed.download * weight), foregroundState: seed.background ? 'background' : 'foreground', category: classification.categories[0], classification, isNewDestination: false, source: 'demo', provenance: observed });
     }
     const sensorSeeds: { sensor: SensorType; count: number; apps: string[] }[] = [
       { sensor: 'Microphone', count: day === 0 ? 7 : 2 + day % 7, apps: ['whatsapp', 'instagram'] },
@@ -92,6 +92,31 @@ export function createDemoDataset(anchor = Date.now()): PrivacyDataset {
       { ...base, id: `demo-email-usage-${day}`, timestamp: start + span * 0.9, appId: 'outlook', type: 'app-usage', direction: 'unknown', durationSeconds: 1860 - day % 6 * 120, count: 1 },
     );
   }
+  const newDomain = 'sync-edge.example';
+  const newClassification = classifyDomain(newDomain);
+  connections.push({
+    id: 'demo-connection-first-seen',
+    timestamp: Math.max(today.getTime(), anchor - 2 * 60_000),
+    appId: 'instagram',
+    domain: newDomain,
+    ip: '',
+    port: 0,
+    protocol: 'Unknown',
+    organizationId: null,
+    country: '',
+    countryCode: '',
+    region: '',
+    asn: '',
+    bytesUploaded: 0,
+    bytesDownloaded: 0,
+    bytesMeasured: false,
+    foregroundState: 'unknown',
+    category: 'Unknown',
+    classification: newClassification,
+    isNewDestination: true,
+    source: 'demo',
+    provenance: observed,
+  });
   connections.sort((a, b) => b.timestamp - a.timestamp);
   sensors.sort((a, b) => b.timestamp - a.timestamp);
   communications.sort((a, b) => b.timestamp - a.timestamp);

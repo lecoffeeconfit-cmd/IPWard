@@ -1,0 +1,21 @@
+{
+  "build": {
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "distribution": "store",
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "bundleIdentifier": "com.lecoffeeconfit.ipward"
+      }
+    }
+  },
+  "cli": {
+    "appVersionSource": "remote"
+  }
+}
